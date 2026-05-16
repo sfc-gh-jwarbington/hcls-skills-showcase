@@ -1,0 +1,51 @@
+name: Sync HCLS Skills Showcase
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6:00 AM UTC
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  sync-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout showcase repo
+        uses: actions/checkout@v4
+
+      - name: Checkout source skills repo
+        uses: actions/checkout@v4
+        with:
+          repository: Snowflake-Solutions/health-sciences-coco-skills-incubator
+          path: source-skills-repo
+          token: ${{ secrets.SOURCE_REPO_PAT }}
+
+      - name: Copy skills directory
+        run: |
+          rm -rf source-skills
+          cp -r source-skills-repo/skills source-skills
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate showcase page
+        run: python generate_showcase.py
+
+      - name: Clean up source copy
+        run: rm -rf source-skills source-skills-repo
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto-sync: Update HCLS Skills Showcase from source repo"
+            git push
+          fi
